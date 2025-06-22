@@ -1,15 +1,17 @@
-const express = require("express");
-const { register, login } = require("../controllers/authController");
+// routes/authRoutes.js
 
+const express = require('express');
 const router = express.Router();
+const authController = require('../controllers/authController');
 
-// Email-password routes
-router.post("/register", register);
-router.post("/login", login);
+router.get('/test', (req, res) => {
+  res.send('Auth route test successful');
+});
 
-// Optional: Logout route if you handle sessions
-// router.get("/logout", (req, res) => {
-//   // Your logout logic here
-// });
+// Register route
+router.post('/register', authController.register);
+
+// Login route
+router.post('/login', authController.login);
 
 module.exports = router;

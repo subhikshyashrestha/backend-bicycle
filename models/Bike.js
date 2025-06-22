@@ -15,6 +15,9 @@ const bikeSchema = new mongoose.Schema({
         lng : {type:Number}
 
     },
+    unlockOtp: Number,
+    otpGeneratedAt: Date, 
+      availableInMinutes: Number,
 
     assignedTo: { type: mongoose.Schema.Types.ObjectId, ref:'User',default:null}
 });

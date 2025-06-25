@@ -8,6 +8,8 @@ const authRoutes = require('./routes/authRoutes');
 const userRoutes = require('./routes/userRoutes');
 const bikeRoutes = require('./routes/bikeRoutes');
 const utilityRoutes = require('./routes/utilityRoutes');
+const rideRoutes = require('./routes/rideRoutes');
+
 
 // ✅ Environment config
 dotenv.config();
@@ -18,6 +20,10 @@ const app = express();
 // ✅ Middlewares
 app.use(cors());              // Enable CORS
 app.use(express.json());      // Parse JSON request bodies
+
+
+
+
 
 // ✅ MongoDB connection
 mongoose.connect(process.env.DBURL, {
@@ -40,7 +46,11 @@ app.get('/api/healthcheck', (req, res) => {
 app.use('/api/v1/auth', authRoutes);
 app.use('/api/v1/users', userRoutes);
 app.use('/api/v1/bikes', bikeRoutes);
-app.use('/api/v1', utilityRoutes); // 🔁 Must come before listen()
+app.use('/api/v1', utilityRoutes); 
+app.use('/api/v1/rides', rideRoutes);
+
+
+// 🔁 Must come before listen()
 
 // ✅ Optional test route
 app.post('/api/v1/auth/register', (req, res) => {

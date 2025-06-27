@@ -18,7 +18,7 @@ const userSchema = new mongoose.Schema(
     },
     phone: {
       type: String,
-      required: true, // ✅ fixed: colon and comma
+      required: true, 
     },
     
     role: {

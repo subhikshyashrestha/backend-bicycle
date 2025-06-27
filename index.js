@@ -9,6 +9,7 @@ const userRoutes = require('./routes/userRoutes');
 const bikeRoutes = require('./routes/bikeRoutes');
 const utilityRoutes = require('./routes/utilityRoutes');
 const rideRoutes = require('./routes/rideRoutes');
+const stationRoutes = require('./routes/stationRoutes');
 
 
 // ✅ Environment config
@@ -48,6 +49,7 @@ app.use('/api/v1/users', userRoutes);
 app.use('/api/v1/bikes', bikeRoutes);
 app.use('/api/v1', utilityRoutes); 
 app.use('/api/v1/rides', rideRoutes);
+app.use('/api/v1/stations', stationRoutes);
 
 
 // 🔁 Must come before listen()

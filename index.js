@@ -3,6 +3,15 @@ const mongoose = require('mongoose');
 const dotenv = require('dotenv');
 const cors = require('cors');
 
+
+
+app.use(cors({
+  origin: ['https://zupito-frontend.onrender.com'], // allow only your frontend
+  methods: ['GET', 'POST', 'PUT', 'DELETE'],
+  credentials: true // only if you're using cookies/auth
+}));
+
+
 // ✅ Route imports
 const authRoutes = require('./routes/authRoutes');
 const userRoutes = require('./routes/userRoutes');

@@ -68,6 +68,30 @@ router.get('/seed', async (req, res) => {
   }
 });
 
+// POST create a new bike
+router.post('/', async (req, res) => {
+  const { code, isAvailable, location, availableInMinutes, assignedTo } = req.body;
+
+  if (!code) {
+    return res.status(400).json({ message: 'Bike code is required' });
+  }
+
+  const bike = new Bike({
+    code,
+    isAvailable: isAvailable !== undefined ? isAvailable : true,
+    location: location || { lat: 0, lng: 0 },
+    availableInMinutes: availableInMinutes || null,
+    assignedTo: assignedTo || null,
+  });
+
+  try {
+    const savedBike = await bike.save();
+    res.status(201).json(savedBike);
+  } catch (error) {
+    res.status(500).json({ message: 'Error saving bike', error: error.message });
+  }
+});
+
 // 🔐 Generate OTP using bike code (valid for 90 seconds)
 router.get('/code/:code/otp', async (req, res) => {
   try {

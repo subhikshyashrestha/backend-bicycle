@@ -4,10 +4,17 @@ const User = require("../models/user");
 
 const register = async (req, res) => {
   try {
-    const { username, email, password,phone, role } = req.body;  
+    const { username, email, password, phone, role } = req.body;
     const hashedPassword = await bcrypt.hash(password, 10);
 
-    const newUser = new User({ username, email, password: hashedPassword, phone,role });
+    const newUser = new User({
+      username,
+      email,
+      password: hashedPassword,
+      phone,
+      role
+    });
+
     await newUser.save();
 
     res.status(201).json({ message: `User registered with username ${username}` });
@@ -37,8 +44,24 @@ const login = async (req, res) => {
       { expiresIn: "1h" }
     );
 
-    res.status(200).json({ token });
+    // ✅ Include token and essential user details
+    res.status(200).json({
+      token,
+      user: {
+        _id: user._id,
+        username: user.username,
+        email: user.email,
+        phone: user.phone,
+        role: user.role,
+        walletBalance: user.walletBalance || 0,
+        totalRides: user.totalRides || 0,
+        totalDistance: user.totalDistance || 0,
+        membershipLevel: user.membershipLevel || "Basic",
+        joinedDate: user.createdAt || null,
+      }
+    });
   } catch (err) {
+    console.error(err);
     res.status(500).json({ message: "Something went wrong" });
   }
 };

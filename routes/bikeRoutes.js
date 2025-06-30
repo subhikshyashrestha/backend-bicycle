@@ -6,56 +6,15 @@ const Bike = require('../models/Bike');
 router.get('/seed', async (req, res) => {
   try {
     const sampleBikes = [
-      // Sanepa
-      {
-        code: 'S1',
-        isAvailable: true,
-        location: { lat: 27.685353, lng: 85.307080 },
-      },
-      {
-        code: 'S2',
-        isAvailable: false,
-        location: { lat: 27.685400, lng: 85.307100 },
-        availableInMinutes: 4,
-      },
-      {
-        code: 'S3',
-        isAvailable: true,
-        location: { lat: 27.685400, lng: 85.307100 },
-      },
-      // Pulchowk
-      {
-        code: 'P1',
-        isAvailable: true,
-        location: { lat: 27.679600, lng: 85.319458 },
-      },
-      {
-        code: 'P2',
-        isAvailable: true,
-        location: { lat: 27.679650, lng: 85.319500 },
-      },
-      {
-        code: 'P3',
-        isAvailable: true,
-        location: { lat: 27.679650, lng: 85.319500 },
-      },
-      // Jawalakhel
-      {
-        code: 'J1',
-        isAvailable: true,
-        location: { lat: 27.673389, lng: 85.312648 },
-      },
-      {
-        code: 'J2',
-        isAvailable: false,
-        location: { lat: 27.673450, lng: 85.312700 },
-        availableInMinutes: 6,
-      },
-      {
-        code: 'J3',
-        isAvailable: true,
-        location: { lat: 27.673450, lng: 85.312700 },
-      },
+      { code: 'S1', isAvailable: true, location: { lat: 27.685353, lng: 85.307080 } },
+      { code: 'S2', isAvailable: false, location: { lat: 27.685400, lng: 85.307100 }, availableInMinutes: 4 },
+      { code: 'S3', isAvailable: true, location: { lat: 27.685400, lng: 85.307100 } },
+      { code: 'P1', isAvailable: true, location: { lat: 27.679600, lng: 85.319458 } },
+      { code: 'P2', isAvailable: true, location: { lat: 27.679650, lng: 85.319500 } },
+      { code: 'P3', isAvailable: true, location: { lat: 27.679650, lng: 85.319500 } },
+      { code: 'J1', isAvailable: true, location: { lat: 27.673389, lng: 85.312648 } },
+      { code: 'J2', isAvailable: false, location: { lat: 27.673450, lng: 85.312700 }, availableInMinutes: 6 },
+      { code: 'J3', isAvailable: true, location: { lat: 27.673450, lng: 85.312700 } },
     ];
 
     await Bike.deleteMany();
@@ -92,10 +51,10 @@ router.post('/', async (req, res) => {
   }
 });
 
-// 🔐 Generate OTP using bike code (valid for 90 seconds)
-router.get('/code/:code/otp', async (req, res) => {
+// 🔐 Securely generate OTP (does not return it)
+router.post('/generate-otp', async (req, res) => {
   try {
-    const { code } = req.params;
+    const { code } = req.body;
     const bike = await Bike.findOne({ code });
 
     if (!bike) return res.status(404).json({ message: 'Bike not found' });
@@ -104,26 +63,24 @@ router.get('/code/:code/otp', async (req, res) => {
     const now = new Date();
     const otpAgeSeconds = bike.otpGeneratedAt ? (now - bike.otpGeneratedAt) / 1000 : Infinity;
 
-    if (!bike.unlockOtp || otpAgeSeconds > 90) {
-      // Generate new OTP if none exists or expired
+    if (!bike.unlockOtp || otpAgeSeconds > 60) {
       bike.unlockOtp = Math.floor(1000 + Math.random() * 9000);
       bike.otpGeneratedAt = now;
       await bike.save();
     }
 
-    res.json({ otp: bike.unlockOtp });
+    // Do NOT send OTP in response
+    res.status(200).json({ message: 'OTP generated' });
   } catch (error) {
     console.error('OTP generation error:', error);
     res.status(500).json({ message: 'Failed to generate OTP' });
   }
 });
 
-// ✅ Verify OTP
-router.post('/code/:code/verify-otp', async (req, res) => {
+// ✅ Securely verify OTP
+router.post('/verify-otp', async (req, res) => {
   try {
-    const { code } = req.params;
-    const { otp } = req.body;
-
+    const { code, otp } = req.body;
     const bike = await Bike.findOne({ code });
 
     if (!bike) return res.status(404).json({ message: 'Bike not found' });
@@ -134,14 +91,15 @@ router.post('/code/:code/verify-otp', async (req, res) => {
     if (
       !bike.unlockOtp ||
       bike.unlockOtp.toString() !== otp ||
-      otpAgeSeconds > 90
+      otpAgeSeconds > 60
     ) {
       return res.status(400).json({ message: 'Invalid or expired OTP' });
     }
 
-    // ✅ OTP is valid
+    // OTP valid → mark bike as unavailable
     bike.unlockOtp = null;
     bike.otpGeneratedAt = null;
+    bike.isAvailable = false;
     await bike.save();
 
     res.json({ message: 'OTP verified. Bike unlocked!' });

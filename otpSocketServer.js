@@ -32,8 +32,8 @@ function setupSocketServer(server) {
     });
   });
 }
-
 function sendOtpToUser(userId, bikeCode) {
+  console.log('👥 Connected users:', Array.from(userSockets.keys()));
   const socket = userSockets.get(userId);
   if (!socket) {
     console.log(`⚠️ No socket for user ${userId}`);

@@ -63,14 +63,14 @@ router.post('/generate-otp', async (req, res) => {
     const now = new Date();
     const otpAgeSeconds = bike.otpGeneratedAt ? (now - bike.otpGeneratedAt) / 1000 : Infinity;
 
-    if (!bike.unlockOtp || otpAgeSeconds > 60) {
-      bike.unlockOtp = Math.floor(1000 + Math.random() * 9000);
+    // 🔁 Change 60 → 90 seconds
+    if (!bike.unlockOtp || otpAgeSeconds > 90) {
+      bike.unlockOtp = Math.floor(1000 + Math.random() * 9000); // 4-digit OTP
       bike.otpGeneratedAt = now;
       await bike.save();
     }
 
-    // Do NOT send OTP in response
-    res.status(200).json({ message: 'OTP generated' });
+    res.status(200).json({ message: 'OTP generated' }); // Do not send OTP in response
   } catch (error) {
     console.error('OTP generation error:', error);
     res.status(500).json({ message: 'Failed to generate OTP' });
@@ -88,10 +88,11 @@ router.post('/verify-otp', async (req, res) => {
     const now = new Date();
     const otpAgeSeconds = bike.otpGeneratedAt ? (now - bike.otpGeneratedAt) / 1000 : Infinity;
 
+    // 🔁 Change 60 → 90 seconds
     if (
       !bike.unlockOtp ||
       bike.unlockOtp.toString() !== otp ||
-      otpAgeSeconds > 60
+      otpAgeSeconds > 90
     ) {
       return res.status(400).json({ message: 'Invalid or expired OTP' });
     }

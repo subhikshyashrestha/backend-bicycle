@@ -1,6 +1,16 @@
 const express = require('express');
 const router = express.Router();
 const Bike = require('../models/Bike');
+// ✅ GET all bikes
+router.get('/', async (req, res) => {
+  try {
+    const bikes = await Bike.find();
+    res.json(bikes);
+  } catch (error) {
+    res.status(500).json({ message: 'Failed to fetch bikes' });
+  }
+});
+
 
 // 🔁 Seed route to store all bikes
 router.get('/seed', async (req, res) => {

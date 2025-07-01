@@ -2,11 +2,25 @@ const express = require('express');
 const router = express.Router();
 const Bike = require('../models/Bike');
 
-// ✅ GET all bikes
+// ✅ GET all bikes with auto-unlock logic
 router.get('/', async (req, res) => {
   try {
     const bikes = await Bike.find();
-    res.json(bikes);
+    const now = new Date();
+
+    // Auto-unlock bikes if 2 minutes passed
+    const updatedBikes = await Promise.all(
+      bikes.map(async (bike) => {
+        if (!bike.isAvailable && bike.autoUnlockAt && now > bike.autoUnlockAt) {
+          bike.isAvailable = true;
+          bike.autoUnlockAt = null;
+          await bike.save(); // update availability
+        }
+        return bike;
+      })
+    );
+
+    res.json(updatedBikes);
   } catch (error) {
     res.status(500).json({ message: 'Failed to fetch bikes' });
   }
@@ -101,7 +115,7 @@ router.post('/generate-otp', async (req, res) => {
   }
 });
 
-// ✅ Verify OTP and unlock bike
+// ✅ Verify OTP and unlock bike (set autoUnlockAt)
 router.post('/verify-otp', async (req, res) => {
   try {
     const { code, otp } = req.body;
@@ -125,6 +139,7 @@ router.post('/verify-otp', async (req, res) => {
     bike.unlockOtp = null;
     bike.otpGeneratedAt = null;
     bike.isAvailable = false;
+    bike.autoUnlockAt = new Date(Date.now() + 2 * 60 * 1000); // auto-unlock in 2 minutes
     await bike.save();
 
     res.json({

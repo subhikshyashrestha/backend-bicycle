@@ -37,6 +37,11 @@ const bikeSchema = new mongoose.Schema({
     ref: 'Station',
     default: null,
   },
+  autoUnlockAt: {
+  type: Date,
+  default: null,
+  },
+
 });
 
 module.exports = mongoose.model('Bike', bikeSchema);

@@ -73,15 +73,15 @@ router.post('/generate-otp', async (req, res) => {
     const now = new Date();
     const otpAgeSeconds = bike.otpGeneratedAt ? (now - bike.otpGeneratedAt) / 1000 : Infinity;
 
-    // 🔁 Change 60 → 90 seconds
+    // 🔁 Regenerate OTP only if expired
     if (!bike.unlockOtp || otpAgeSeconds > 90) {
       bike.unlockOtp = Math.floor(1000 + Math.random() * 9000); // 4-digit OTP
       bike.otpGeneratedAt = now;
       await bike.save();
     }
 
-    // ✅ Emit OTP to frontend socket
-    const io = req.app.get('io'); // io must be set in index.js
+    // ✅ Emit OTP via socket
+    const io = req.app.get('io');
     if (io && userId) {
       io.to(userId).emit('otp', {
         otp: bike.unlockOtp,
@@ -90,7 +90,11 @@ router.post('/generate-otp', async (req, res) => {
       console.log(`✅ OTP emitted to ${userId}: ${bike.unlockOtp}`);
     }
 
-    res.status(200).json({ message: 'OTP generated' });
+    // ✅ Include OTP in response for frontend display
+    res.status(200).json({
+      message: 'OTP generated',
+      otp: bike.unlockOtp, // 🔥 Now included
+    });
   } catch (error) {
     console.error('OTP generation error:', error);
     res.status(500).json({ message: 'Failed to generate OTP' });
@@ -116,7 +120,7 @@ router.post('/verify-otp', async (req, res) => {
       return res.status(400).json({ message: 'Invalid or expired OTP' });
     }
 
-    // OTP valid → mark bike as unavailable
+    // ✅ OTP is valid: unlock the bike
     bike.unlockOtp = null;
     bike.otpGeneratedAt = null;
     bike.isAvailable = false;
@@ -125,7 +129,7 @@ router.post('/verify-otp', async (req, res) => {
     res.json({
       message: 'OTP verified. Bike unlocked!',
       success: true,
-      refreshBikes: true
+      refreshBikes: true,
     });
   } catch (error) {
     console.error('OTP verify error:', error);

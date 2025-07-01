@@ -61,7 +61,7 @@ router.post('/', async (req, res) => {
   }
 });
 
-// 🔐 Securely generate OTP and emit it via WebSocket
+// 🔐 Generate OTP and emit it via WebSocket, respond with OTP included
 router.post('/generate-otp', async (req, res) => {
   try {
     const { bikeCode, userId } = req.body;
@@ -73,27 +73,27 @@ router.post('/generate-otp', async (req, res) => {
     const now = new Date();
     const otpAgeSeconds = bike.otpGeneratedAt ? (now - bike.otpGeneratedAt) / 1000 : Infinity;
 
-    // 🔁 Regenerate OTP only if expired
+    // Regenerate OTP only if missing or expired (older than 90 sec)
     if (!bike.unlockOtp || otpAgeSeconds > 90) {
       bike.unlockOtp = Math.floor(1000 + Math.random() * 9000); // 4-digit OTP
       bike.otpGeneratedAt = now;
       await bike.save();
     }
 
-    // ✅ Emit OTP via socket
+    // Emit OTP via socket.io if available and userId provided
     const io = req.app.get('io');
     if (io && userId) {
       io.to(userId).emit('otp', {
         otp: bike.unlockOtp,
         bikeCode: bike.code,
       });
-      console.log(`✅ OTP emitted to ${userId}: ${bike.unlockOtp}`);
+      console.log(`OTP emitted to user ${userId}: ${bike.unlockOtp}`);
     }
 
-    // ✅ Include OTP in response for frontend display
+    // Respond with message and OTP
     res.status(200).json({
       message: 'OTP generated',
-      otp: bike.unlockOtp, // 🔥 Now included
+      otp: bike.unlockOtp,
     });
   } catch (error) {
     console.error('OTP generation error:', error);
@@ -101,7 +101,7 @@ router.post('/generate-otp', async (req, res) => {
   }
 });
 
-// ✅ Securely verify OTP
+// ✅ Verify OTP and unlock bike
 router.post('/verify-otp', async (req, res) => {
   try {
     const { code, otp } = req.body;
@@ -112,6 +112,7 @@ router.post('/verify-otp', async (req, res) => {
     const now = new Date();
     const otpAgeSeconds = bike.otpGeneratedAt ? (now - bike.otpGeneratedAt) / 1000 : Infinity;
 
+    // Check OTP validity and expiration
     if (
       !bike.unlockOtp ||
       bike.unlockOtp.toString() !== otp ||
@@ -120,7 +121,7 @@ router.post('/verify-otp', async (req, res) => {
       return res.status(400).json({ message: 'Invalid or expired OTP' });
     }
 
-    // ✅ OTP is valid: unlock the bike
+    // OTP is valid: unlock bike and reset OTP info
     bike.unlockOtp = null;
     bike.otpGeneratedAt = null;
     bike.isAvailable = false;

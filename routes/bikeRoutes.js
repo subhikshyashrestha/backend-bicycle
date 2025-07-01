@@ -1,6 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const Bike = require('../models/Bike');
+
 // ✅ GET all bikes
 router.get('/', async (req, res) => {
   try {
@@ -10,7 +11,6 @@ router.get('/', async (req, res) => {
     res.status(500).json({ message: 'Failed to fetch bikes' });
   }
 });
-
 
 // 🔁 Seed route to store all bikes
 router.get('/seed', async (req, res) => {
@@ -37,7 +37,7 @@ router.get('/seed', async (req, res) => {
   }
 });
 
-// POST create a new bike
+// ✅ POST: Create a new bike
 router.post('/', async (req, res) => {
   const { code, isAvailable, location, availableInMinutes, assignedTo } = req.body;
 
@@ -61,11 +61,11 @@ router.post('/', async (req, res) => {
   }
 });
 
-// 🔐 Securely generate OTP (does not return it)
+// 🔐 Securely generate OTP and emit it via WebSocket
 router.post('/generate-otp', async (req, res) => {
   try {
-    const { code } = req.body;
-    const bike = await Bike.findOne({ code });
+    const { bikeCode, userId } = req.body;
+    const bike = await Bike.findOne({ code: bikeCode });
 
     if (!bike) return res.status(404).json({ message: 'Bike not found' });
     if (!bike.isAvailable) return res.status(400).json({ message: 'Bike is not available' });
@@ -80,7 +80,17 @@ router.post('/generate-otp', async (req, res) => {
       await bike.save();
     }
 
-    res.status(200).json({ message: 'OTP generated' }); // Do not send OTP in response
+    // ✅ Emit OTP to frontend socket
+    const io = req.app.get('io'); // io must be set in index.js
+    if (io && userId) {
+      io.to(userId).emit('otp', {
+        otp: bike.unlockOtp,
+        bikeCode: bike.code,
+      });
+      console.log(`✅ OTP emitted to ${userId}: ${bike.unlockOtp}`);
+    }
+
+    res.status(200).json({ message: 'OTP generated' });
   } catch (error) {
     console.error('OTP generation error:', error);
     res.status(500).json({ message: 'Failed to generate OTP' });
@@ -98,7 +108,6 @@ router.post('/verify-otp', async (req, res) => {
     const now = new Date();
     const otpAgeSeconds = bike.otpGeneratedAt ? (now - bike.otpGeneratedAt) / 1000 : Infinity;
 
-    // 🔁 Change 60 → 90 seconds
     if (
       !bike.unlockOtp ||
       bike.unlockOtp.toString() !== otp ||
@@ -113,9 +122,10 @@ router.post('/verify-otp', async (req, res) => {
     bike.isAvailable = false;
     await bike.save();
 
-    res.json({ message: 'OTP verified. Bike unlocked!' ,
+    res.json({
+      message: 'OTP verified. Bike unlocked!',
+      success: true,
       refreshBikes: true
-
     });
   } catch (error) {
     console.error('OTP verify error:', error);

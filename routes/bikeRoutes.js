@@ -103,7 +103,10 @@ router.post('/verify-otp', async (req, res) => {
     bike.isAvailable = false;
     await bike.save();
 
-    res.json({ message: 'OTP verified. Bike unlocked!' });
+    res.json({ message: 'OTP verified. Bike unlocked!' ,
+      refreshBikes: true
+
+    });
   } catch (error) {
     console.error('OTP verify error:', error);
     res.status(500).json({ message: 'Failed to verify OTP' });

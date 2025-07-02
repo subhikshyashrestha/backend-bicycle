@@ -2,19 +2,29 @@ const express = require('express');
 const router = express.Router();
 const Bike = require('../models/Bike');
 
-// ✅ GET all bikes with auto-unlock logic
+// ✅ GET all bikes with auto-unlock and countdown logic
 router.get('/', async (req, res) => {
   try {
     const bikes = await Bike.find();
     const now = new Date();
 
-    // Auto-unlock bikes if 2 minutes passed
     const updatedBikes = await Promise.all(
       bikes.map(async (bike) => {
         if (!bike.isAvailable && bike.autoUnlockAt && now > bike.autoUnlockAt) {
+          // Unlock bike after 2 minutes
           bike.isAvailable = true;
           bike.autoUnlockAt = null;
-          await bike.save(); // update availability
+          bike.availableInMinutes = 0;
+          await bike.save();
+        } else if (!bike.isAvailable && bike.autoUnlockAt) {
+          // Update availableInMinutes countdown
+          const diffMs = bike.autoUnlockAt - now;
+          bike.availableInMinutes = diffMs > 0 ? Math.ceil(diffMs / 60000) : 0;
+          await bike.save();
+        } else {
+          // Bike is available, no wait time
+          bike.availableInMinutes = 0;
+          await bike.save();
         }
         return bike;
       })
@@ -26,25 +36,45 @@ router.get('/', async (req, res) => {
   }
 });
 
-// 🔁 Seed route to store all bikes
+// ✅ GET bikes by assigned station ID
+router.get('/station/:stationId', async (req, res) => {
+  try {
+    const { stationId } = req.params;
+    const bikes = await Bike.find({ assignedStation: stationId });
+    res.json(bikes);
+  } catch (error) {
+    res.status(500).json({ message: 'Failed to fetch bikes for station' });
+  }
+});
+
+// 🔁 Seed route to store all bikes including new ones
 router.get('/seed', async (req, res) => {
   try {
     const sampleBikes = [
-      { code: 'S1', isAvailable: true, location: { lat: 27.685353, lng: 85.307080 } },
-      { code: 'S2', isAvailable: false, location: { lat: 27.685400, lng: 85.307100 }, availableInMinutes: 4 },
-      { code: 'S3', isAvailable: true, location: { lat: 27.685400, lng: 85.307100 } },
-      { code: 'P1', isAvailable: true, location: { lat: 27.679600, lng: 85.319458 } },
-      { code: 'P2', isAvailable: true, location: { lat: 27.679650, lng: 85.319500 } },
-      { code: 'P3', isAvailable: true, location: { lat: 27.679650, lng: 85.319500 } },
-      { code: 'J1', isAvailable: true, location: { lat: 27.673389, lng: 85.312648 } },
-      { code: 'J2', isAvailable: false, location: { lat: 27.673450, lng: 85.312700 }, availableInMinutes: 6 },
-      { code: 'J3', isAvailable: true, location: { lat: 27.673450, lng: 85.312700 } },
+      // Existing sample bikes
+      { code: 'S1', isAvailable: true, location: { lat: 27.685353, lng: 85.307080 }, assignedStation: '685e3618dd442896cc04bea1' },
+      { code: 'S2', isAvailable: false, location: { lat: 27.685400, lng: 85.307100 }, availableInMinutes: 4, assignedStation: '685e3618dd442896cc04bea1' },
+      { code: 'S3', isAvailable: true, location: { lat: 27.685400, lng: 85.307100 }, assignedStation: '685e3618dd442896cc04bea1' },
+      { code: 'P1', isAvailable: true, location: { lat: 27.679600, lng: 85.319458 }, assignedStation: '685e716ef8c4edf40545021f' },
+      { code: 'P2', isAvailable: true, location: { lat: 27.679650, lng: 85.319500 }, assignedStation: '685e716ef8c4edf40545021f' },
+      { code: 'P3', isAvailable: true, location: { lat: 27.679650, lng: 85.319500 }, assignedStation: '685e716ef8c4edf40545021f' },
+      { code: 'J1', isAvailable: true, location: { lat: 27.673389, lng: 85.312648 }, assignedStation: '685e70b6f8c4edf40545021d' },
+      { code: 'J2', isAvailable: false, location: { lat: 27.673450, lng: 85.312700 }, availableInMinutes: 6, assignedStation: '685e70b6f8c4edf40545021d' },
+      { code: 'J3', isAvailable: true, location: { lat: 27.673450, lng: 85.312700 }, assignedStation: '685e70b6f8c4edf40545021d' },
+
+      // New bikes you added, replace 'stationId_D' and 'stationId_E' with your actual station IDs
+      { code: 'D1', isAvailable: true, location: { lat: 27.670000, lng: 85.320000 }, assignedStation: '6864f71330b38403c8a6476c' },
+      { code: 'D2', isAvailable: true, location: { lat: 27.670010, lng: 85.320000 }, assignedStation: '6864f71330b38403c8a6476c' },
+      { code: 'D3', isAvailable: true, location: { lat: 27.670020, lng: 85.320000 }, assignedStation: '6864f71330b38403c8a6476c' },
+      { code: 'E1', isAvailable: true, location: { lat: 27.666872951079593, lng: 85.30955274795652 }, assignedStation: '6864f56230b38403c8a64767' },
+      { code: 'E2', isAvailable: true, location: { lat: 27.666872951079593, lng: 85.30955274795652 }, assignedStation: '6864f56230b38403c8a64767' },
+      { code: 'E3', isAvailable: true, location: { lat: 27.666872951079593, lng: 85.30955274795652 }, assignedStation: '6864f56230b38403c8a64767' },
     ];
 
     await Bike.deleteMany();
     await Bike.insertMany(sampleBikes);
 
-    res.json({ message: 'All frontend bikes seeded!' });
+    res.json({ message: 'All bikes seeded with new bikes included!' });
   } catch (error) {
     console.error(error);
     res.status(500).json({ message: 'Seeding failed' });
@@ -53,7 +83,7 @@ router.get('/seed', async (req, res) => {
 
 // ✅ POST: Create a new bike
 router.post('/', async (req, res) => {
-  const { code, isAvailable, location, availableInMinutes, assignedTo } = req.body;
+  const { code, isAvailable, location, availableInMinutes, assignedTo, assignedStation } = req.body;
 
   if (!code) {
     return res.status(400).json({ message: 'Bike code is required' });
@@ -65,6 +95,7 @@ router.post('/', async (req, res) => {
     location: location || { lat: 0, lng: 0 },
     availableInMinutes: availableInMinutes || null,
     assignedTo: assignedTo || null,
+    assignedStation: assignedStation || null,
   });
 
   try {
@@ -72,6 +103,23 @@ router.post('/', async (req, res) => {
     res.status(201).json(savedBike);
   } catch (error) {
     res.status(500).json({ message: 'Error saving bike', error: error.message });
+  }
+});
+
+// ✅ POST: Assign a bike to a station
+router.post('/assign-bike-to-station', async (req, res) => {
+  const { bikeCode, stationId } = req.body;
+
+  try {
+    const bike = await Bike.findOne({ code: bikeCode });
+    if (!bike) return res.status(404).json({ message: 'Bike not found' });
+
+    bike.assignedStation = stationId;
+    await bike.save();
+
+    res.json({ message: 'Bike assigned to station successfully', bike });
+  } catch (error) {
+    res.status(500).json({ message: 'Failed to assign bike', error: error.message });
   }
 });
 
@@ -87,24 +135,20 @@ router.post('/generate-otp', async (req, res) => {
     const now = new Date();
     const otpAgeSeconds = bike.otpGeneratedAt ? (now - bike.otpGeneratedAt) / 1000 : Infinity;
 
-    // Regenerate OTP only if missing or expired (older than 90 sec)
     if (!bike.unlockOtp || otpAgeSeconds > 90) {
-      bike.unlockOtp = Math.floor(1000 + Math.random() * 9000); // 4-digit OTP
+      bike.unlockOtp = Math.floor(1000 + Math.random() * 9000);
       bike.otpGeneratedAt = now;
       await bike.save();
     }
 
-    // Emit OTP via socket.io if available and userId provided
     const io = req.app.get('io');
     if (io && userId) {
       io.to(userId).emit('otp', {
         otp: bike.unlockOtp,
         bikeCode: bike.code,
       });
-      console.log(`OTP emitted to user ${userId}: ${bike.unlockOtp}`);
     }
 
-    // Respond with message and OTP
     res.status(200).json({
       message: 'OTP generated',
       otp: bike.unlockOtp,
@@ -126,7 +170,6 @@ router.post('/verify-otp', async (req, res) => {
     const now = new Date();
     const otpAgeSeconds = bike.otpGeneratedAt ? (now - bike.otpGeneratedAt) / 1000 : Infinity;
 
-    // Check OTP validity and expiration
     if (
       !bike.unlockOtp ||
       bike.unlockOtp.toString() !== otp ||
@@ -135,7 +178,6 @@ router.post('/verify-otp', async (req, res) => {
       return res.status(400).json({ message: 'Invalid or expired OTP' });
     }
 
-    // OTP is valid: unlock bike and reset OTP info
     bike.unlockOtp = null;
     bike.otpGeneratedAt = null;
     bike.isAvailable = false;

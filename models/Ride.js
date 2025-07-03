@@ -28,6 +28,19 @@ const rideSchema = new mongoose.Schema({
   distance: {
     type: Number // distance in kilometers
   },
+  selectedDuration: {
+    type: Number, // in minutes
+    required: true
+  },
+  estimatedCost: {
+    type: Number,
+    required: true
+  },
+  paymentStatus: {
+    type: String,
+    enum: ['pending', 'paid'],
+    default: 'pending'
+  },
   startTime: {
     type: Date,
     default: Date.now

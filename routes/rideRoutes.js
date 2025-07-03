@@ -3,12 +3,19 @@ const router = express.Router();
 const Ride = require('../models/Ride');
 const haversineDistance = require('../utils/distanceCalculator');
 
-// ✅ Start a Ride
+// ✅ Start a Ride with dummy eSewa payment
 router.post('/start', async (req, res) => {
-  console.log('Request body:', req.body); 
-  const { userId, bikeId, startLat, startLng } = req.body;
+  console.log('Request body:', req.body);
+  const {
+    userId,
+    bikeId,
+    startLat,
+    startLng,
+    selectedDuration,   // Added
+    estimatedCost       // Added
+  } = req.body;
 
-  if (!userId || !bikeId || startLat == null || startLng == null) {
+  if (!userId || !bikeId || startLat == null || startLng == null || !selectedDuration || !estimatedCost) {
     return res.status(400).json({ error: 'Missing required fields' });
   }
 
@@ -19,11 +26,26 @@ router.post('/start', async (req, res) => {
       startLat,
       startLng,
       startTime: new Date(),
-      status: 'ongoing'
+      status: 'ongoing',
+      selectedDuration,
+      estimatedCost,
+      paymentStatus: 'pending', // 🔄 Initially pending
     });
 
-    await ride.save();
-    res.status(201).json({ message: 'Ride started', rideId: ride._id });
+    const savedRide = await ride.save();
+
+    // 🧪 Simulate dummy eSewa payment success after 1 second
+    setTimeout(async () => {
+      savedRide.paymentStatus = 'paid';
+      await savedRide.save();
+      console.log(`✅ Dummy eSewa payment success for Ride ID: ${savedRide._id}`);
+    }, 1000);
+
+    res.status(201).json({
+      message: 'Ride started. Dummy eSewa payment initiated.',
+      rideId: savedRide._id,
+      paymentStatus: ride.paymentStatus,
+    });
   } catch (err) {
     res.status(500).json({ error: 'Failed to start ride', details: err.message });
   }
@@ -66,6 +88,24 @@ router.post('/end', async (req, res) => {
     });
   } catch (err) {
     res.status(500).json({ error: 'Failed to end ride', details: err.message });
+  }
+});
+
+// ✅ Check ride payment status and details by rideId
+router.get('/:rideId/status', async (req, res) => {
+  const { rideId } = req.params;
+
+  try {
+    const ride = await Ride.findById(rideId).populate('bike');
+    if (!ride) return res.status(404).json({ error: 'Ride not found' });
+
+    res.json({
+      paymentStatus: ride.paymentStatus || 'pending',
+      rideStatus: ride.status,
+      bike: ride.bike,
+    });
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to fetch ride status', details: err.message });
   }
 });
 

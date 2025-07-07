@@ -2,7 +2,12 @@ const express = require('express');
 const router = express.Router();
 const Ride = require('../models/Ride');
 const Station = require('../models/Station');
+const Bike = require('../models/Bike');
 const haversineDistance = require('../utils/distanceCalculator');
+const turf = require('@turf/turf'); // For polygon check
+
+// Load Lalitpur polygon GeoJSON - create this file accordingly
+const lalitpurPolygon = require('../utils/lalitpurPolygon.js');
 
 // ✅ Start a Ride with dummy eSewa payment simulation
 router.post('/start', async (req, res) => {
@@ -83,6 +88,84 @@ router.post('/start', async (req, res) => {
       error: 'Failed to start ride',
       details: err.message,
     });
+  }
+});
+
+// ✅ End Ride with penalty logic
+router.post('/end', async (req, res) => {
+  const { rideId, userLocation } = req.body;
+
+  if (!rideId || !userLocation || userLocation.latitude == null || userLocation.longitude == null) {
+    return res.status(400).json({ error: 'Missing rideId or user location' });
+  }
+
+  try {
+    // Find the ride
+    const ride = await Ride.findById(rideId).populate('destinationStation');
+    if (!ride) return res.status(404).json({ error: 'Ride not found' });
+    if (ride.status === 'completed') return res.status(400).json({ error: 'Ride already completed' });
+
+    const endLat = parseFloat(userLocation.latitude);
+    const endLng = parseFloat(userLocation.longitude);
+
+    // Get all stations
+    const stations = await Station.find();
+
+    // Check if user is near any station (<= 50 meters)
+    const isNearAnyStation = stations.some(station => {
+      const distKm = haversineDistance(endLat, endLng, station.latitude, station.longitude);
+      return distKm <= 0.05; // 50 meters in km
+    });
+
+    // Check if inside Lalitpur polygon
+    const userPoint = turf.point([endLng, endLat]);
+    const insideLalitpur = turf.booleanPointInPolygon(userPoint, lalitpurPolygon);
+
+    // Calculate penalty
+    let penaltyAmount = 0;
+    let penaltyReason = '';
+
+    if (!insideLalitpur) {
+      penaltyAmount = 100;
+      penaltyReason = 'Outside operating zone (Lalitpur)';
+    } else if (!isNearAnyStation) {
+      penaltyAmount = 50;
+      penaltyReason = 'Bike not returned to any station';
+    }
+
+    // Calculate distance covered
+    const distanceCovered = haversineDistance(ride.startLat, ride.startLng, endLat, endLng);
+
+    // Update ride document
+    ride.endLat = endLat;
+    ride.endLng = endLng;
+    ride.endTime = new Date();
+    ride.status = 'completed';
+    ride.distance = distanceCovered;
+    ride.penaltyAmount = penaltyAmount;
+    ride.penaltyReason = penaltyReason;
+
+    await ride.save();
+
+    // Mark bike as available
+    const bike = await Bike.findById(ride.bike);
+    if (bike) {
+      bike.isAvailable = true;
+      await bike.save();
+    }
+
+    // Respond
+    return res.json({
+      message: 'Ride ended successfully',
+      distance: `${distanceCovered.toFixed(2)} km`,
+      finalFare: ride.estimatedCost + penaltyAmount,
+      penaltyAmount,
+      penaltyReason,
+    });
+
+  } catch (err) {
+    console.error('❌ Error ending ride:', err.message);
+    return res.status(500).json({ error: 'Failed to end ride', details: err.message });
   }
 });
 

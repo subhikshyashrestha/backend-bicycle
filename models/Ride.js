@@ -52,6 +52,20 @@ const rideSchema = new mongoose.Schema({
     type: String,
     enum: ['ongoing', 'completed'],
     default: 'ongoing'
+  },
+
+  // ✅ NEW FIELDS:
+  penaltyAmount: {
+    type: Number,
+    default: 0
+  },
+  penaltyReason: {
+    type: String,
+    default: ''
+  },
+  destinationStation: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Station'
   }
 });
 

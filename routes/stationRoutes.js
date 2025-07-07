@@ -104,4 +104,61 @@ router.delete('/:stationId/remove-bike/:bikeId', async (req, res) => {
   }
 });
 
+// --- KNN / Nearest stations route ---
+
+// Haversine formula to calculate distance between two lat/lon points
+function haversine(lat1, lon1, lat2, lon2) {
+  const toRad = angle => (angle * Math.PI) / 180;
+  const R = 6371; // Radius of Earth in km
+
+  const dLat = toRad(lat2 - lat1);
+  const dLon = toRad(lon2 - lon1);
+
+  const a =
+    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+    Math.cos(toRad(lat1)) *
+      Math.cos(toRad(lat2)) *
+      Math.sin(dLon / 2) *
+      Math.sin(dLon / 2);
+
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+
+  return R * c; // Distance in km
+}
+
+// POST /nearest — find k nearest stations given user location
+router.post('/nearest', async (req, res) => {
+  const { lat, lon, k } = req.body;
+
+  if (lat == null || lon == null) {
+    return res.status(400).json({ message: 'lat and lon are required' });
+  }
+
+  try {
+    // Get all stations from DB
+    const stations = await Station.find();
+
+    // Calculate distance for each station from user location
+    const stationsWithDistance = stations.map(station => ({
+      id: station._id,
+      name: station.name,
+      latitude: station.latitude,
+      longitude: station.longitude,
+      capacity: station.capacity,
+      distance: haversine(lat, lon, station.latitude, station.longitude),
+    }));
+
+    // Sort by distance ascending
+    stationsWithDistance.sort((a, b) => a.distance - b.distance);
+
+    // Limit to top k stations (default 3)
+    const nearestStations = stationsWithDistance.slice(0, k || 3);
+
+    return res.json({ nearestStations });
+  } catch (error) {
+    console.error('Error fetching nearest stations:', error);
+    return res.status(500).json({ message: 'Server error', error: error.message });
+  }
+});
+
 module.exports = router;

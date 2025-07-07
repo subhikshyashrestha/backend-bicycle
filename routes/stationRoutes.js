@@ -135,16 +135,17 @@ router.post('/nearest', async (req, res) => {
   }
 
   try {
-    // Get all stations from DB
-    const stations = await Station.find();
+    // Get all stations from DB with bikes populated
+    const stations = await Station.find().populate('bikes');
 
-    // Calculate distance for each station from user location
+    // Calculate distance for each station from user location + count available bikes
     const stationsWithDistance = stations.map(station => ({
       id: station._id,
       name: station.name,
       latitude: station.latitude,
       longitude: station.longitude,
       capacity: station.capacity,
+      availableBikes: station.bikes.filter(bike => bike.isAvailable).length,
       distance: haversine(lat, lon, station.latitude, station.longitude),
     }));
 

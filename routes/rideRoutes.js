@@ -1,111 +1,88 @@
 const express = require('express');
 const router = express.Router();
 const Ride = require('../models/Ride');
+const Station = require('../models/Station');
 const haversineDistance = require('../utils/distanceCalculator');
 
-// ✅ Start a Ride with dummy eSewa payment
+// ✅ Start a Ride with dummy eSewa payment simulation
 router.post('/start', async (req, res) => {
-  console.log('Request body:', req.body);
+  console.log('📥 Ride Start Request:', req.body);
+
   const {
     userId,
     bikeId,
-    startLat,
-    startLng,
-    selectedDuration,   // Added
-    estimatedCost       // Added
+    startStationId,
+    destinationStationId,
+    selectedDuration,
+    estimatedCost
   } = req.body;
 
-  if (!userId || !bikeId || startLat == null || startLng == null || !selectedDuration || !estimatedCost) {
-    return res.status(400).json({ error: 'Missing required fields' });
+  // 🧠 Validate required fields
+  const missingFields = [];
+  if (!userId) missingFields.push('userId');
+  if (!bikeId) missingFields.push('bikeId');
+  if (!startStationId) missingFields.push('startStationId');
+  if (!destinationStationId) missingFields.push('destinationStationId');
+  if (!selectedDuration) missingFields.push('selectedDuration');
+  if (!estimatedCost) missingFields.push('estimatedCost');
+
+  if (missingFields.length > 0) {
+    return res.status(400).json({
+      error: 'Missing required fields',
+      missingFields
+    });
   }
 
   try {
+    // 📍 Get coordinates from start station
+    const startStation = await Station.findById(startStationId);
+    if (!startStation) {
+      return res.status(404).json({ error: 'Start station not found' });
+    }
+
+    // 📝 Create a new Ride document
     const ride = new Ride({
       user: userId,
       bike: bikeId,
-      startLat,
-      startLng,
+      startLat: startStation.latitude,
+      startLng: startStation.longitude,
+      destinationStation: destinationStationId,
       startTime: new Date(),
-      status: 'ongoing',
       selectedDuration,
       estimatedCost,
-      paymentStatus: 'pending', // 🔄 Initially pending
+      status: 'ongoing',
+      paymentStatus: 'pending',
     });
 
     const savedRide = await ride.save();
 
-    // 🧪 Simulate dummy eSewa payment success after 1 second
+    // 🧪 Simulate eSewa success after 1s
     setTimeout(async () => {
-      savedRide.paymentStatus = 'paid';
-      await savedRide.save();
-      console.log(`✅ Dummy eSewa payment success for Ride ID: ${savedRide._id}`);
+      try {
+        savedRide.paymentStatus = 'paid';
+        await savedRide.save();
+        console.log(`✅ Dummy eSewa payment confirmed for Ride ID: ${savedRide._id}`);
+      } catch (err) {
+        console.error('❌ Failed to simulate payment:', err.message);
+      }
     }, 1000);
 
-    res.status(201).json({
+    // ⏱️ Estimate ride end time
+    const estimatedEndTime = new Date(Date.now() + selectedDuration * 60000);
+
+    // 📤 Respond immediately with ride info
+    return res.status(201).json({
       message: 'Ride started. Dummy eSewa payment initiated.',
       rideId: savedRide._id,
-      paymentStatus: ride.paymentStatus,
+      paymentStatus: savedRide.paymentStatus,
+      rideEndTime: estimatedEndTime,
     });
   } catch (err) {
-    res.status(500).json({ error: 'Failed to start ride', details: err.message });
-  }
-});
-
-// ✅ End a Ride
-router.post('/end', async (req, res) => {
-  const { rideId, endLat, endLng } = req.body;
-
-  if (!rideId || endLat == null || endLng == null) {
-    return res.status(400).json({ error: 'Missing required fields' });
-  }
-
-  try {
-    const ride = await Ride.findById(rideId);
-    if (!ride) return res.status(404).json({ error: 'Ride not found' });
-    if (ride.status !== 'ongoing') return res.status(400).json({ error: 'Ride already completed' });
-
-    const distance = parseFloat(
-      haversineDistance(
-        ride.startLat,
-        ride.startLng,
-        parseFloat(endLat),
-        parseFloat(endLng)
-      )
-    );
-
-    ride.endLat = parseFloat(endLat);
-    ride.endLng = parseFloat(endLng);
-    ride.endTime = new Date();
-    ride.distance = distance;
-    ride.status = 'completed';
-
-    await ride.save();
-
-    res.json({
-      message: 'Ride ended successfully',
-      distance: `${distance} km`,
-      ride
+    console.error('❌ Ride Start Error:', err);
+    return res.status(500).json({
+      error: 'Failed to start ride',
+      details: err.message,
     });
-  } catch (err) {
-    res.status(500).json({ error: 'Failed to end ride', details: err.message });
-  }
-});
-
-// ✅ Check ride payment status and details by rideId
-router.get('/:rideId/status', async (req, res) => {
-  const { rideId } = req.params;
-
-  try {
-    const ride = await Ride.findById(rideId).populate('bike');
-    if (!ride) return res.status(404).json({ error: 'Ride not found' });
-
-    res.json({
-      paymentStatus: ride.paymentStatus || 'pending',
-      rideStatus: ride.status,
-      bike: ride.bike,
-    });
-  } catch (err) {
-    res.status(500).json({ error: 'Failed to fetch ride status', details: err.message });
   }
 });
 

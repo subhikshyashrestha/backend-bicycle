@@ -6,10 +6,10 @@ const Bike = require('../models/Bike');
 const haversineDistance = require('../utils/distanceCalculator');
 const turf = require('@turf/turf'); // For polygon check
 
-// Load Lalitpur polygon GeoJSON - create this file accordingly
+// 🗺️ Lalitpur boundary polygon
 const lalitpurPolygon = require('../utils/lalitpurPolygon.js');
 
-// ✅ Start a Ride with dummy eSewa payment simulation
+// ✅ Start Ride (dummy eSewa payment simulation)
 router.post('/start', async (req, res) => {
   console.log('📥 Ride Start Request:', req.body);
 
@@ -22,7 +22,6 @@ router.post('/start', async (req, res) => {
     estimatedCost
   } = req.body;
 
-  // 🧠 Validate required fields
   const missingFields = [];
   if (!userId) missingFields.push('userId');
   if (!bikeId) missingFields.push('bikeId');
@@ -39,13 +38,11 @@ router.post('/start', async (req, res) => {
   }
 
   try {
-    // 📍 Get coordinates from start station
     const startStation = await Station.findById(startStationId);
     if (!startStation) {
       return res.status(404).json({ error: 'Start station not found' });
     }
 
-    // 📝 Create a new Ride document
     const ride = new Ride({
       user: userId,
       bike: bikeId,
@@ -61,7 +58,6 @@ router.post('/start', async (req, res) => {
 
     const savedRide = await ride.save();
 
-    // 🧪 Simulate eSewa success after 1s
     setTimeout(async () => {
       try {
         savedRide.paymentStatus = 'paid';
@@ -72,16 +68,15 @@ router.post('/start', async (req, res) => {
       }
     }, 1000);
 
-    // ⏱️ Estimate ride end time
     const estimatedEndTime = new Date(Date.now() + selectedDuration * 60000);
 
-    // 📤 Respond immediately with ride info
     return res.status(201).json({
       message: 'Ride started. Dummy eSewa payment initiated.',
       rideId: savedRide._id,
       paymentStatus: savedRide.paymentStatus,
       rideEndTime: estimatedEndTime,
     });
+
   } catch (err) {
     console.error('❌ Ride Start Error:', err);
     return res.status(500).json({
@@ -91,7 +86,7 @@ router.post('/start', async (req, res) => {
   }
 });
 
-// ✅ End Ride with penalty logic
+// ✅ End Ride with geofence and penalty logic
 router.post('/end', async (req, res) => {
   const { rideId, userLocation } = req.body;
 
@@ -100,28 +95,37 @@ router.post('/end', async (req, res) => {
   }
 
   try {
-    // Find the ride
     const ride = await Ride.findById(rideId).populate('destinationStation');
     if (!ride) return res.status(404).json({ error: 'Ride not found' });
-    if (ride.status === 'completed') return res.status(400).json({ error: 'Ride already completed' });
+
+    if (ride.status === 'completed') {
+      return res.status(400).json({ error: 'Ride already completed or ended previously.' });
+    }
 
     const endLat = parseFloat(userLocation.latitude);
     const endLng = parseFloat(userLocation.longitude);
 
-    // Get all stations
-    const stations = await Station.find();
+    console.log('📍 User location:', userLocation);
 
-    // Check if user is near any station (<= 50 meters)
+    // 1️⃣ Check distance to all stations
+    const stations = await Station.find();
     const isNearAnyStation = stations.some(station => {
       const distKm = haversineDistance(endLat, endLng, station.latitude, station.longitude);
-      return distKm <= 0.05; // 50 meters in km
+      return distKm <= 0.05;
     });
 
-    // Check if inside Lalitpur polygon
-    const userPoint = turf.point([endLng, endLat]);
-    const insideLalitpur = turf.booleanPointInPolygon(userPoint, lalitpurPolygon);
+    // 2️⃣ Check if user is inside Lalitpur
+    let insideLalitpur = false;
+    try {
+      const userPoint = turf.point([endLng, endLat]);
+      insideLalitpur = turf.booleanPointInPolygon(userPoint, lalitpurPolygon);
+      console.log('🟢 Inside Lalitpur:', insideLalitpur);
+    } catch (err) {
+      console.error('❌ Turf polygon check failed:', err.message);
+      return res.status(500).json({ error: 'Internal geofence validation failed' });
+    }
 
-    // Calculate penalty
+    // 3️⃣ Decide Penalty
     let penaltyAmount = 0;
     let penaltyReason = '';
 
@@ -133,10 +137,8 @@ router.post('/end', async (req, res) => {
       penaltyReason = 'Bike not returned to any station';
     }
 
-    // Calculate distance covered
+    // 4️⃣ Update ride
     const distanceCovered = haversineDistance(ride.startLat, ride.startLng, endLat, endLng);
-
-    // Update ride document
     ride.endLat = endLat;
     ride.endLng = endLng;
     ride.endTime = new Date();
@@ -147,14 +149,13 @@ router.post('/end', async (req, res) => {
 
     await ride.save();
 
-    // Mark bike as available
+    // 5️⃣ Mark bike available again
     const bike = await Bike.findById(ride.bike);
     if (bike) {
       bike.isAvailable = true;
       await bike.save();
     }
 
-    // Respond
     return res.json({
       message: 'Ride ended successfully',
       distance: `${distanceCovered.toFixed(2)} km`,

@@ -36,11 +36,16 @@ router.get('/', async (req, res) => {
   }
 });
 
-// ✅ GET bikes by assigned station ID
+// ✅ GET bikes by assigned station ID (ONLY AVAILABLE BIKES)
 router.get('/station/:stationId', async (req, res) => {
   try {
     const { stationId } = req.params;
-    const bikes = await Bike.find({ assignedStation: stationId });
+    const bikes = await Bike.find({
+      assignedStation: stationId,
+      isAvailable: true, // ✅ Only show available bikes
+    });
+
+    console.log(`📍 Found ${bikes.length} available bikes for station ${stationId}`);
     res.json(bikes);
   } catch (error) {
     res.status(500).json({ message: 'Failed to fetch bikes for station' });
@@ -51,7 +56,6 @@ router.get('/station/:stationId', async (req, res) => {
 router.get('/seed', async (req, res) => {
   try {
     const sampleBikes = [
-      // Existing sample bikes
       { code: 'S1', isAvailable: true, location: { lat: 27.685353, lng: 85.307080 }, assignedStation: '685e3618dd442896cc04bea1' },
       { code: 'S2', isAvailable: false, location: { lat: 27.685400, lng: 85.307100 }, availableInMinutes: 4, assignedStation: '685e3618dd442896cc04bea1' },
       { code: 'S3', isAvailable: true, location: { lat: 27.685400, lng: 85.307100 }, assignedStation: '685e3618dd442896cc04bea1' },
@@ -61,8 +65,6 @@ router.get('/seed', async (req, res) => {
       { code: 'J1', isAvailable: true, location: { lat: 27.673389, lng: 85.312648 }, assignedStation: '685e70b6f8c4edf40545021d' },
       { code: 'J2', isAvailable: false, location: { lat: 27.673450, lng: 85.312700 }, availableInMinutes: 6, assignedStation: '685e70b6f8c4edf40545021d' },
       { code: 'J3', isAvailable: true, location: { lat: 27.673450, lng: 85.312700 }, assignedStation: '685e70b6f8c4edf40545021d' },
-
-      // New bikes you added, replace 'stationId_D' and 'stationId_E' with your actual station IDs
       { code: 'D1', isAvailable: true, location: { lat: 27.670000, lng: 85.320000 }, assignedStation: '6864f71330b38403c8a6476c' },
       { code: 'D2', isAvailable: true, location: { lat: 27.670010, lng: 85.320000 }, assignedStation: '6864f71330b38403c8a6476c' },
       { code: 'D3', isAvailable: true, location: { lat: 27.670020, lng: 85.320000 }, assignedStation: '6864f71330b38403c8a6476c' },
@@ -123,7 +125,7 @@ router.post('/assign-bike-to-station', async (req, res) => {
   }
 });
 
-// 🔐 Generate OTP and emit it via WebSocket, respond with OTP included
+// 🔐 Generate OTP and emit via WebSocket
 router.post('/generate-otp', async (req, res) => {
   try {
     const { bikeCode, userId } = req.body;
@@ -159,7 +161,7 @@ router.post('/generate-otp', async (req, res) => {
   }
 });
 
-// ✅ Verify OTP and unlock bike (set autoUnlockAt)
+// ✅ Verify OTP and unlock bike
 router.post('/verify-otp', async (req, res) => {
   try {
     const { code, otp } = req.body;
@@ -181,7 +183,7 @@ router.post('/verify-otp', async (req, res) => {
     bike.unlockOtp = null;
     bike.otpGeneratedAt = null;
     bike.isAvailable = false;
-    bike.autoUnlockAt = new Date(Date.now() + 2 * 60 * 1000); // auto-unlock in 2 minutes
+    bike.autoUnlockAt = new Date(Date.now() + 2 * 60 * 1000); // unlock in 2 mins
     await bike.save();
 
     res.json({

@@ -183,5 +183,31 @@ router.get('/user/:userId/summary', async (req, res) => {
   }
 });
 
+// 📋 Get full ride history for a user
+router.get('/user/:userId/history', async (req, res) => {
+  const { userId } = req.params;
+
+  try {
+    const rides = await Ride.find({ user: userId })
+      .populate('destinationStation')
+      .sort({ startTime: -1 }); // newest first
+
+    const formatted = rides.map(ride => ({
+      startTime: ride.startTime,
+      endTime: ride.endTime,
+      fare: ride.estimatedCost,
+      penalty: ride.penaltyAmount,
+      startStation: `Lat: ${ride.startLat}, Lng: ${ride.startLng}`,
+      endStation: ride.destinationStation?.name || 'Unknown',
+    }));
+
+    return res.status(200).json(formatted);
+  } catch (err) {
+    console.error('❌ Ride history error:', err.message);
+    return res.status(500).json({ error: 'Failed to fetch ride history' });
+  }
+});
+
+
 
 module.exports = router;

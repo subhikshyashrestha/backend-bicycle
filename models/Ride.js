@@ -59,6 +59,10 @@ const rideSchema = new mongoose.Schema({
     type: Number,
     default: 0
   },
+  startStation: {
+  type: mongoose.Schema.Types.ObjectId,
+  ref: 'Station'
+  },
   penaltyReason: {
     type: String,
     default: ''

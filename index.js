@@ -38,6 +38,7 @@ const bikeRoutes = require('./routes/bikeRoutes');
 const utilityRoutes = require('./routes/utilityRoutes');
 const rideRoutes = require('./routes/rideRoutes');
 const stationRoutes = require('./routes/stationRoutes');
+const adminRoutes = require('./routes/admin'); 
 
 // ✅ Mount Routes
 app.use('/api/v1/auth', authRoutes);
@@ -46,6 +47,7 @@ app.use('/api/v1/bikes', bikeRoutes);
 app.use('/api/v1', utilityRoutes);
 app.use('/api/v1/rides', rideRoutes);
 app.use('/api/v1/stations', stationRoutes);
+app.use('/api/v1/admin', adminRoutes);
 
 // ✅ OTP Generation Route (Frontend calls this before OTP input dialog)
 app.post('/api/v1/otp/generate', async (req, res) => {

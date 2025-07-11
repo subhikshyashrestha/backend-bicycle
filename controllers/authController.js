@@ -2,17 +2,16 @@ const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
 const User = require("../models/user");
 
+// REGISTER CONTROLLER
 const register = async (req, res) => {
   try {
     const { username, email, password, phone, role, citizenshipNumber } = req.body;
 
-    // Check if citizenship image was uploaded
     if (!req.file) {
       return res.status(400).json({ message: "Citizenship image is required" });
     }
 
-    const citizenshipImage = req.file.path; // multer puts file path here
-
+    const citizenshipImage = req.file.path;
     const hashedPassword = await bcrypt.hash(password, 10);
 
     const newUser = new User({
@@ -23,7 +22,7 @@ const register = async (req, res) => {
       role,
       citizenshipNumber,
       citizenshipImage,
-      isVerified: false, // default
+      isVerified: false,
     });
 
     await newUser.save();
@@ -35,27 +34,37 @@ const register = async (req, res) => {
   }
 };
 
+// LOGIN CONTROLLER
 const login = async (req, res) => {
   try {
     const { username, password } = req.body;
+
+    // Step 1: Find the user by username
     const user = await User.findOne({ username });
 
     if (!user) {
       return res.status(404).json({ message: `User with username ${username} not found` });
     }
 
+    // Step 2: Check password
     const isMatch = await bcrypt.compare(password, user.password);
     if (!isMatch) {
       return res.status(400).json({ message: "Invalid credentials" });
     }
 
+    // Step 3: Optional admin-only route check
+    if (req.originalUrl.includes("/admin") && user.role !== "admin") {
+      return res.status(403).json({ message: "Not authorized as admin" });
+    }
+
+    // Step 4: Generate token
     const token = jwt.sign(
       { id: user._id, role: user.role },
       process.env.JWT_SECRET,
       { expiresIn: "1h" }
     );
 
-    // Include token and essential user details including isVerified status
+    // Step 5: Return user info
     res.status(200).json({
       token,
       user: {
@@ -64,7 +73,7 @@ const login = async (req, res) => {
         email: user.email,
         phone: user.phone,
         role: user.role,
-        isVerified: user.isVerified,  // send this so frontend can show verified badge or restrict features
+        isVerified: user.isVerified,
         walletBalance: user.walletBalance || 0,
         totalRides: user.totalRides || 0,
         totalDistance: user.totalDistance || 0,

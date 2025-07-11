@@ -16,7 +16,10 @@ const storage = multer.diskStorage({
 
 const upload = multer({ storage });
 
-// Use upload.single() middleware for the image field name 'citizenshipImage'
+// Register route with citizenship image upload
 router.post('/register', upload.single('citizenshipImage'), authController.register);
+
+// Add login route here
+router.post('/login', authController.login);
 
 module.exports = router;

@@ -18,14 +18,28 @@ const userSchema = new mongoose.Schema(
     },
     phone: {
       type: String,
-      required: true, 
+      required: true,
     },
-    
     role: {
       type: String,
       required: true,
       enum: ["admin", "user"],
       default: "user",
+    },
+
+    // 🆕 New fields
+    citizenshipNumber: {
+      type: String,
+      required: true,
+      unique: true,
+    },
+    citizenshipImage: {
+      type: String, // Path to uploaded file
+      required: true,
+    },
+    isVerified: {
+      type: Boolean,
+      default: false,
     },
   },
   { timestamps: true }

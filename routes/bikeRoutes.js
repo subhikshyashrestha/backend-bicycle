@@ -1,6 +1,8 @@
 const express = require('express');
 const router = express.Router();
 const Bike = require('../models/Bike');
+const verifyToken = require('../middleware/authMiddleware'); // Added middleware import
+const User = require('../models/user'); // Added User model to check isVerified
 
 // ✅ GET all bikes with auto-unlock and countdown logic
 router.get('/', async (req, res) => {
@@ -125,10 +127,16 @@ router.post('/assign-bike-to-station', async (req, res) => {
   }
 });
 
-// 🔐 Generate OTP and emit via WebSocket
-router.post('/generate-otp', async (req, res) => {
+// 🔐 Generate OTP and emit via WebSocket (Protected + verified user check)
+router.post('/generate-otp', verifyToken, async (req, res) => {
   try {
-    const { bikeCode, userId } = req.body;
+    const { bikeCode } = req.body;
+    const user = await User.findById(req.user.id);
+
+    if (!user || !user.isVerified) {
+      return res.status(403).json({ message: 'Only verified users can unlock bikes' });
+    }
+
     const bike = await Bike.findOne({ code: bikeCode });
 
     if (!bike) return res.status(404).json({ message: 'Bike not found' });
@@ -144,8 +152,8 @@ router.post('/generate-otp', async (req, res) => {
     }
 
     const io = req.app.get('io');
-    if (io && userId) {
-      io.to(userId).emit('otp', {
+    if (io) {
+      io.to(req.user.id).emit('otp', {
         otp: bike.unlockOtp,
         bikeCode: bike.code,
       });
@@ -161,10 +169,16 @@ router.post('/generate-otp', async (req, res) => {
   }
 });
 
-// ✅ Verify OTP and unlock bike
-router.post('/verify-otp', async (req, res) => {
+// 🔐 Verify OTP and unlock bike (Protected)
+router.post('/verify-otp', verifyToken, async (req, res) => {
   try {
     const { code, otp } = req.body;
+    const user = await User.findById(req.user.id);
+
+    if (!user || !user.isVerified) {
+      return res.status(403).json({ message: 'Only verified users can verify OTP' });
+    }
+
     const bike = await Bike.findOne({ code });
 
     if (!bike) return res.status(404).json({ message: 'Bike not found' });

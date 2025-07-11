@@ -4,7 +4,15 @@ const User = require("../models/user");
 
 const register = async (req, res) => {
   try {
-    const { username, email, password, phone, role } = req.body;
+    const { username, email, password, phone, role, citizenshipNumber } = req.body;
+
+    // Check if citizenship image was uploaded
+    if (!req.file) {
+      return res.status(400).json({ message: "Citizenship image is required" });
+    }
+
+    const citizenshipImage = req.file.path; // multer puts file path here
+
     const hashedPassword = await bcrypt.hash(password, 10);
 
     const newUser = new User({
@@ -12,12 +20,15 @@ const register = async (req, res) => {
       email,
       password: hashedPassword,
       phone,
-      role
+      role,
+      citizenshipNumber,
+      citizenshipImage,
+      isVerified: false, // default
     });
 
     await newUser.save();
 
-    res.status(201).json({ message: `User registered with username ${username}` });
+    res.status(201).json({ message: `User registered with username ${username}, pending verification.` });
   } catch (err) {
     console.error(err);
     res.status(500).json({ message: "Something went wrong" });
@@ -44,7 +55,7 @@ const login = async (req, res) => {
       { expiresIn: "1h" }
     );
 
-    // ✅ Include token and essential user details
+    // Include token and essential user details including isVerified status
     res.status(200).json({
       token,
       user: {
@@ -53,6 +64,7 @@ const login = async (req, res) => {
         email: user.email,
         phone: user.phone,
         role: user.role,
+        isVerified: user.isVerified,  // send this so frontend can show verified badge or restrict features
         walletBalance: user.walletBalance || 0,
         totalRides: user.totalRides || 0,
         totalDistance: user.totalDistance || 0,

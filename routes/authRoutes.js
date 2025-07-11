@@ -1,17 +1,22 @@
-// routes/authRoutes.js
-
 const express = require('express');
 const router = express.Router();
 const authController = require('../controllers/authController');
+const multer = require('multer');
 
-router.get('/test', (req, res) => {
-  res.send('Auth route test successful');
+// Configure multer storage for citizenship images
+const storage = multer.diskStorage({
+  destination: (req, file, cb) => {
+    cb(null, 'uploads/citizenship');  // folder to store images
+  },
+  filename: (req, file, cb) => {
+    // unique filename: timestamp + original name
+    cb(null, Date.now() + '-' + file.originalname);
+  }
 });
 
-// Register route
-router.post('/register', authController.register);
+const upload = multer({ storage });
 
-// Login route
-router.post('/login', authController.login);
+// Use upload.single() middleware for the image field name 'citizenshipImage'
+router.post('/register', upload.single('citizenshipImage'), authController.register);
 
 module.exports = router;

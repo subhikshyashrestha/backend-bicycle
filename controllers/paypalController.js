@@ -1,14 +1,15 @@
-const fetch = (...args) => import('node-fetch').then(({default: fetch}) => fetch(...args));
-
+// Dynamic import of node-fetch for ES Module compatibility
+const fetch = (...args) => import('node-fetch').then(({ default: fetch }) => fetch(...args));
 const base64 = require('base-64');
 
+// PayPal credentials from environment
 const PAYPAL_CLIENT = process.env.PAYPAL_CLIENT_ID;
 const PAYPAL_SECRET = process.env.PAYPAL_SECRET;
 const PAYPAL_API = 'https://api-m.sandbox.paypal.com'; // sandbox endpoint
 
-// ✅ Helper: Get access token
+// ✅ Get PayPal access token
 async function generateAccessToken() {
-  const auth = base64.encode(PAYPAL_CLIENT + ':' + PAYPAL_SECRET);
+  const auth = base64.encode(`${PAYPAL_CLIENT}:${PAYPAL_SECRET}`);
 
   try {
     const response = await fetch(`${PAYPAL_API}/v1/oauth2/token`, {
@@ -34,11 +35,14 @@ async function generateAccessToken() {
   }
 }
 
-// ✅ Controller: Create Order
+// ✅ Create PayPal Order
 exports.createOrder = async (req, res) => {
   try {
     const amount = req.body.amount;
-    
+    if (!amount) {
+      return res.status(400).json({ error: 'Amount is required' });
+    }
+
     const accessToken = await generateAccessToken();
 
     const response = await fetch(`${PAYPAL_API}/v2/checkout/orders`, {
@@ -49,6 +53,10 @@ exports.createOrder = async (req, res) => {
       },
       body: JSON.stringify({
         intent: 'CAPTURE',
+        application_context: {
+          return_url: 'https://zupito.com/payment-success',
+          cancel_url: 'https://zupito.com/payment-cancel',
+        },
         purchase_units: [
           {
             amount: {
@@ -74,10 +82,14 @@ exports.createOrder = async (req, res) => {
   }
 };
 
-// ✅ Controller: Capture Payment
+// ✅ Capture PayPal Payment
 exports.capturePayment = async (req, res) => {
   try {
     const { orderId } = req.body;
+    if (!orderId) {
+      return res.status(400).json({ error: 'Order ID is required' });
+    }
+
     const accessToken = await generateAccessToken();
 
     const response = await fetch(`${PAYPAL_API}/v2/checkout/orders/${orderId}/capture`, {

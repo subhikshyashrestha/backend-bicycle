@@ -55,7 +55,7 @@ app.use('/api/v1', utilityRoutes);
 app.use('/api/v1/rides', rideRoutes);
 app.use('/api/v1/stations', stationRoutes);
 app.use('/api/v1/admin', adminRoutes);
-app.use('/api/payment', paymentRoutes);
+app.use('/api/v1/payment', paymentRoutes);
 
 
 // ✅ OTP Generation Route

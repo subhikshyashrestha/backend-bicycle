@@ -2,18 +2,30 @@ const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
 const User = require("../models/user");
 
-// REGISTER CONTROLLER
+// ✅ REGISTER CONTROLLER
 const register = async (req, res) => {
   try {
-    const { username, email, password, phone, role, citizenshipNumber } = req.body;
+    const {
+      username,
+      email,
+      password,
+      phone,
+      role,
+      citizenshipNumber,
+      citizenshipImage, // ✅ This is the Cloudinary URL sent from the route
+    } = req.body;
 
-    if (!req.file) {
+    // Check required fields
+    if (!citizenshipImage) {
       return res.status(400).json({ message: "Citizenship image is required" });
     }
 
-    
+    // Check if user already exists
+    const existingUser = await User.findOne({ username });
+    if (existingUser) {
+      return res.status(409).json({ message: "Username already exists" });
+    }
 
-    const citizenshipImage = req.file.path;
     const hashedPassword = await bcrypt.hash(password, 10);
 
     const newUser = new User({
@@ -23,20 +35,22 @@ const register = async (req, res) => {
       phone,
       role,
       citizenshipNumber,
-      citizenshipImage,
+      citizenshipImage, // ✅ Save Cloudinary URL
       isVerified: false,
     });
 
     await newUser.save();
 
-    res.status(201).json({ message: `User registered with username ${username}, pending verification.` });
+    res.status(201).json({
+      message: `User registered with username ${username}, pending verification.`,
+    });
   } catch (err) {
-    console.error(err);
+    console.error("Registration Error:", err);
     res.status(500).json({ message: "Something went wrong" });
   }
 };
 
-// LOGIN CONTROLLER
+// ✅ LOGIN CONTROLLER
 const login = async (req, res) => {
   try {
     const { username, password } = req.body;
@@ -81,10 +95,11 @@ const login = async (req, res) => {
         totalDistance: user.totalDistance || 0,
         membershipLevel: user.membershipLevel || "Basic",
         joinedDate: user.createdAt || null,
-      }
+        citizenshipImage: user.citizenshipImage || null,
+      },
     });
   } catch (err) {
-    console.error(err);
+    console.error("Login Error:", err);
     res.status(500).json({ message: "Something went wrong" });
   }
 };

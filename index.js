@@ -1,7 +1,8 @@
+const dotenv = require('dotenv');
 const express = require('express');
 const http = require('http');
 const mongoose = require('mongoose');
-const dotenv = require('dotenv');
+
 const cors = require('cors');
 const path = require('path');
 
@@ -30,7 +31,7 @@ app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 // ✅ MongoDB connection
 mongoose.connect(process.env.DBURL, {
   useNewUrlParser: true,
-  useUnifiedTopology: true,
+  useUnifiedTopology: true, 
 })
   .then(() => console.log('✅ MongoDB connected'))
   .catch(err => console.error('❌ MongoDB connection error:', err));
@@ -43,6 +44,7 @@ const utilityRoutes = require('./routes/utilityRoutes');
 const rideRoutes = require('./routes/rideRoutes');
 const stationRoutes = require('./routes/stationRoutes');
 const adminRoutes = require('./routes/admin'); // contains /pending-users
+const paymentRoutes = require('./routes/payment');
 
 // ✅ Mount Routes
 app.use('/api/v1/auth', authRoutes);
@@ -52,6 +54,7 @@ app.use('/api/v1', utilityRoutes);
 app.use('/api/v1/rides', rideRoutes);
 app.use('/api/v1/stations', stationRoutes);
 app.use('/api/v1/admin', adminRoutes);
+app.use('/api/payment', paymentRoutes);
 
 // ✅ OTP Generation Route
 app.post('/api/v1/otp/generate', async (req, res) => {

@@ -3,9 +3,10 @@ const http = require('http');
 const mongoose = require('mongoose');
 const dotenv = require('dotenv');
 const cors = require('cors');
+const path = require('path');
 
 const { setupSocketServer, sendOtpToUser } = require('./otpSocketServer');
-const Bike = require('./models/Bike'); // Needed to verify bike existence
+const Bike = require('./models/Bike');
 
 dotenv.config();
 
@@ -18,10 +19,13 @@ app.set('io', io); // Now accessible in routes via req.app.get('io')
 
 // ✅ Middleware
 app.use(cors({
-  origin: ['https://zupito-frontend.onrender.com'],
+  origin: ['https://zupito-frontend.onrender.com'], // adjust for frontend domain
   credentials: true,
 }));
 app.use(express.json());
+
+// ✅ Serve static files (for images)
+app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
 // ✅ MongoDB connection
 mongoose.connect(process.env.DBURL, {
@@ -38,7 +42,7 @@ const bikeRoutes = require('./routes/bikeRoutes');
 const utilityRoutes = require('./routes/utilityRoutes');
 const rideRoutes = require('./routes/rideRoutes');
 const stationRoutes = require('./routes/stationRoutes');
-const adminRoutes = require('./routes/admin'); 
+const adminRoutes = require('./routes/admin'); // contains /pending-users
 
 // ✅ Mount Routes
 app.use('/api/v1/auth', authRoutes);
@@ -49,7 +53,7 @@ app.use('/api/v1/rides', rideRoutes);
 app.use('/api/v1/stations', stationRoutes);
 app.use('/api/v1/admin', adminRoutes);
 
-// ✅ OTP Generation Route (Frontend calls this before OTP input dialog)
+// ✅ OTP Generation Route
 app.post('/api/v1/otp/generate', async (req, res) => {
   const { userId, bikeCode } = req.body;
 

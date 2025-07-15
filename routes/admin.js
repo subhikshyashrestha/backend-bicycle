@@ -113,9 +113,8 @@ router.get('/summary', async (req, res) => {
   }
 });
 
-// =======================
 // View All Users
-// =======================
+
 router.get('/users', async (req, res) => {
   try {
     const users = await User.find().select('-password');

@@ -1,25 +1,27 @@
 const express = require('express');
 const router = express.Router();
-const stripe = require('../utils/stripe');
+const { createOrder, capturePayment } = require('../paypal');
 
-router.post('/create-payment-intent', async (req, res) => {
-    try {
-        const { amount, currency = 'usd' } = req.body;
+router.post('/create-order', async (req, res) => {
+  try {
+    const { amount } = req.body; // get amount from frontend
+    const order = await createOrder(amount);
+    res.json(order);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Failed to create order' });
+  }
+});
 
-        // Stripe expects the amount in **cents**
-        const paymentIntent = await stripe.paymentIntents.create({
-            amount,
-            currency,
-            payment_method_types: ['card'],
-        });
-
-        res.status(200).json({
-            clientSecret: paymentIntent.client_secret,
-        });
-    } catch (error) {
-        console.error('Stripe error:', error);
-        res.status(500).json({ error: error.message });
-    }
+router.post('/capture-order', async (req, res) => {
+  try {
+    const { orderId } = req.body;
+    const captureData = await capturePayment(orderId);
+    res.json(captureData);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Failed to capture payment' });
+  }
 });
 
 module.exports = router;

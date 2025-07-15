@@ -37,6 +37,7 @@ async function generateAccessToken() {
 exports.createOrder = async (req, res) => {
   try {
     const amount = req.body.amount;
+    
     const accessToken = await generateAccessToken();
 
     const response = await fetch(`${PAYPAL_API}/v2/checkout/orders`, {

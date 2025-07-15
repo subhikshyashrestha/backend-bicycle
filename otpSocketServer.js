@@ -53,7 +53,7 @@ function sendOtpToUser(userId, bikeCode) {
     return null;
   }
 
-  const otp = Math.floor(1000 + Math.random() * 9000).toString(); // 4-digit OTP
+  const otp = Math.floor(100000 + Math.random() * 900000).toString(); // 6-digit OTP
   socket.emit('otp', { otp, bikeCode });
   console.log(`📨 Sent OTP ${otp} to user ${userId} for bike ${bikeCode}`);
   return otp;

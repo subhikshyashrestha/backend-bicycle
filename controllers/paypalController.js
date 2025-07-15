@@ -1,4 +1,5 @@
-const fetch = require('node-fetch');
+const fetch = (...args) => import('node-fetch').then(({default: fetch}) => fetch(...args));
+
 const base64 = require('base-64');
 
 const PAYPAL_CLIENT = process.env.PAYPAL_CLIENT_ID;

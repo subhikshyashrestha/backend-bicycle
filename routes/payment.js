@@ -1,6 +1,6 @@
 const express = require('express');
 const router = express.Router();
-const { createOrder, capturePayment } = require('../paypal');
+const { createOrder, capturePayment } = require('../controllers/paypalController');
 
 router.post('/create-order', async (req, res) => {
   try {
